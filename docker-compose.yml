@@ -1,0 +1,57 @@
+name: learning docker
+services:
+    db:
+        container_name: db
+        networks:
+            - my-network
+        environment:
+            - POSTGRES_PASSWORD=pasword
+        volumes:
+            - pgdata:/var/lib/postgresql/data
+        ports:
+            - 5432:5432
+        restart: unless-stopped
+        image: postgres:16.3-alpine
+    api-node:
+        container_name: api-node
+        init: true
+        depends_on:
+            - db
+        networks:
+            - my-network
+        environment:
+            - DATABASE_URL=postgres://postgres:password@db:5432/postgres
+        ports:
+            - 3000:3000
+        restart: unless-stopped
+        image: api-node:1
+    api-golang:
+        container_name: api-golang
+        init: true
+        depends_on:
+            - db
+        networks:
+            - my-network
+        environment:
+            - DATABASE_URL=postgres://postgres:password@db:5432/postgres
+        ports:
+            - 8080:8080
+        restart: unless-stopped
+        image: api-golang:0
+    client-react:
+        container_name: client-react-nginx
+        init: true
+        networks:
+            - my-network
+        ports:
+            - 80:8080
+        restart: unless-stopped
+        image: client-react:0
+networks:
+    my-network:
+        external: true
+        name: my-network
+volumes:
+    pgdata:
+        external: true
+        name: pgdata
