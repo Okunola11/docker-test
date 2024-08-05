@@ -1,0 +1,88 @@
+name: learning docker
+services:
+    db:
+        container_name: db
+        networks:
+            - my-network
+        environment:
+            - POSTGRES_PASSWORD=pasword
+        volumes:
+            - pgdata:/var/lib/postgresql/data
+        ports:
+            - 5432:5432
+        restart: unless-stopped
+        image: postgres:16.3-alpine
+    api-node:
+        container_name: api-node
+        build:
+            context: ./api-node/
+            dockerfile: Dockerfile.2
+            target: dev
+        init: true
+        volumes:
+            - type: bind
+              source: ./api-node/
+              target: /usr/src/app/
+            - type: volume
+              target: /usr/src/app/node_modules
+        depends_on:
+            - db
+        networks:
+            - my-network
+        environment:
+            - DATABASE_URL=postgres://postgres:password@db:5432/postgres
+        ports:
+            - 3000:3000
+        restart: unless-stopped
+        image: api-node-dev:0
+    api-golang:
+        container_name: api-golang
+        build:
+            context: ./api-golang/
+            # dockerfile: ./api-golang/Dockerfile
+            target: dev
+        init: true
+        volumes:
+            - type: bind
+              source: ./api-golang/
+              target: /app/
+        depends_on:
+            - db
+        networks:
+            - my-network
+        environment:
+            - DATABASE_URL=postgres://postgres:password@db:5432/postgres
+        ports:
+            - 8080:8080
+        restart: unless-stopped
+        image: api-golang-dev:0
+    client-react:
+        container_name: client-react-nginx
+        build:
+            context: ./client-react/
+            dockerfile: Dockerfile.2
+            target: dev
+        init: true
+        volumes: 
+            - type: bind
+              source: ./client-react/
+              target: /usr/src/app/
+            - type: volume
+              target: /usr/src/app/node_modules
+            - type: bind
+              source: ./Makefile-compose/client-react/vite.config.js
+              target: /usr/src/app/vite.config.js
+        networks:
+            - my-network
+        ports:
+            - 5173:5173
+        restart: unless-stopped
+        image: client-react-vite:0
+networks:
+    my-network:
+        external: true
+        name: my-network
+volumes:
+    pgdata:
+        external: true
+        name: pgdata
