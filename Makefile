@@ -1,30 +1,56 @@
-DATABASE_URL:=postgres://postgres:foobarbaz@localhost:5432/postgres
+### DOCKER CLI COMMANDS
 
-.PHONY: run-postgres
-run-postgres:
-	@echo Starting postgres container
-	-docker run \
-		-e POSTGRES_PASSWORD=foobarbaz \
+DATABASE_URL=postgres://postgres:password@db:5432/postgres
+
+.PHONY: docker-run-all
+docker-run-all:
+	# stop and remove all running containers to avoid name conflicts
+
+	docker network create my-network
+
+	docker run -d \
+		--name db \
+		--network my-network \
+		-e POSTGRES_PASSWORD=pasword \
 		-v pgdata:/var/lib/postgresql/data \
 		-p 5432:5432 \
-		postgres:15.1-alpine
+		--restart unless-stopped \
+		postgres:16.3-alpine
 
-.PHONY: run-api-node
-run-api-node:
-	@echo Starting node api
-	cd api-node && \
-		DATABASE_URL=${DATABASE_URL} \
-		npm run dev
+	docker run -d \
+		--name api-node \
+		--network my-network \
+		-e DATABASE_URL=${DATABASE_URL} \
+		-p 3000:3000 \
+		--restart unless-stopped \
+		api-node:1
+	
+	docker run -d \
+		--name api-golang \
+		--network my-network \
+		-e DATABASE_URL=${DATABASE_URL} \
+		--restart unless-stopped \
+		api-golang:0
 
-.PHONY: run-api-golang
-run-api-golang:
-	@echo Starting golang api
-	cd api-golang && \
-		DATABASE_URL=${DATABASE_URL} \
-		go run main.go
+	docker run -d \
+		--name client-react-nginx \
+		--network my-network \
+		-p 80:8080 \
+		--restart unless-stopped \
+		client-react:0
 
-.PHONY: run-client-react
-run-client-react:
-	@echo Starting react client
-	cd client-react && \
-		npm run dev
+.PHONY: docker-stop
+docker-stop:
+	-docker stop db
+	-docker stop api-node
+	-docker stop api-golang
+	-docker stop client-react-nginx
+
+.PHONY: docker-rm
+docker-rm:
+	-docker container rm db
+	-docker container rm api-node
+	-docker container rm api-golang
+	-docker container rm client-react-nginx
+	-docker network rm my-network
+	
