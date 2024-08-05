@@ -1,0 +1,45 @@
+# Pin specific version for stability, use slim for reduced image size
+FROM node:19.6-bullseye-slim AS base
+
+# specify workdir other than /
+WORKDIR /usr/src/app
+
+# copy only files required to install
+# dependencies(better layer caching)
+COPY package*.json ./
+
+FROM base AS dev 
+
+RUN --mount=type=cache,target=/usr/src/app/.npm \
+    npm set cache /usr/src/app/.npm && \
+    npm install
+
+COPY . .
+
+CMD [ "npm", "run", "dev" ]
+
+FROM base AS production
+
+# set NODE_ENV
+ENV NODE_ENV=Production
+
+# install only production dependencies
+RUN --mount=type=cache,target=/usr/src/app/.npm \
+    npm set cache /usr/src/app/.npm && \
+    npm ci --only=production
+
+# use non-root user
+# use --chown on COPY commands to set file permissions
+USER node
+
+# copy the healthcheck script
+COPY --chown=node:node ./healthcheck/ .
+
+# copy the remaining source code after installing dependencies
+# copy only necessary files. Like those in the src folder in this case
+COPY --chown=node:node ./src . 
+
+# indicate expected port
+EXPOSE 3000
+
+CMD [ "node", "index.js"]
